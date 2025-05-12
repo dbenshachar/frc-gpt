@@ -20,7 +20,7 @@ HEADERS = {
 }
 
 PER_PAGE = 50
-PAGES = 1
+PAGES = 20
 
 def create_directory(directory_name):
     """
