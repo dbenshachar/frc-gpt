@@ -261,7 +261,11 @@ def main():
     repositories = fetch_repositories(API_QUERY, PER_PAGE, PAGES)
     print(f"Total repositories fetched: {len(repositories)}")
 
-    for owner, repo_name in repositories:
+    # Start iterating from the index equal to the length of seen_repos
+    for index, (owner, repo_name) in enumerate(repositories):
+        if index > len(seen_repos):
+            print(f"Processing repository {index + 1}/{len(repositories)}: {owner}/{repo_name}")
+            fetch_java_files(owner, repo_name, SOURCE_CODE_DIR, seen_repos)
         fetch_java_files(owner, repo_name, SOURCE_CODE_DIR, seen_repos)
 
 if __name__ == "__main__":
