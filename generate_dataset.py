@@ -8,7 +8,8 @@ load_dotenv()
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 assert GITHUB_TOKEN is not None, "GITHUB_TOKEN must be set"
-API_QUERY = "language:java path:src/main/ is:public"
+API_QUERY = "path:.wpilib path:src/main/ is:public"
+API_QUERY = "path:.wpilib is:public"
 
 SOURCE_CODE_DIR = "data"
 SEPARATOR_TOKEN = "\n\n" + "="*50 + " FILE SEPARATOR " + "="*50 + "\n\n"
@@ -18,8 +19,8 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 
-PER_PAGE = 100
-PAGES = 10
+PER_PAGE = 10
+PAGES = 1
 
 def create_directory(directory_name):
     """
@@ -46,7 +47,7 @@ def load_seen_repos(directory):
     """
     seen = set()
     for filename in os.listdir(directory):
-        if filename.endswith(".java") and "_" in filename:
+        if filename.endswith(".txt") and "_" in filename:
             base = filename[:-5]  # remove .java
             parts = base.split("_", 1)
             if len(parts) == 2:
@@ -75,36 +76,80 @@ def fetch_repositories(query, per_page, pages):
             print(f"Request Status Code: {response.status_code}")
             response.raise_for_status()
             data = response.json()
+            print(f"Data fetched for page {page}: {data}")
             for item in data.get("items", []):
                 repositories.append((item["owner"]["login"], item["name"]))
             print(f"Fetched {len(data.get('items', []))} repositories from page {page}.")
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             print(f"Error fetching repositories on page {page}: {e}")
-            break
     return repositories
+
+def get_most_recent_branch(owner, repo_name):
+    """
+    Get the most recently pushed branch for the given repository.
+
+    Args:
+        owner (str): The owner of the repository.
+        repo_name (str): The name of the repository.
+
+    Returns:
+        str: The name of the most recently pushed branch.
+    """
+    url = f"https://api.github.com/repos/{owner}/{repo_name}/branches"
+    try:
+        response = requests.get(url, headers=HEADERS)
+        response.raise_for_status()
+        branches = response.json()
+
+        # Sort branches by the date of the latest commit (last commit date)
+        sorted_branches = sorted(branches, key=lambda b: b['commit']['commit']['author']['date'], reverse=True)
+
+        # Get the most recent branch (the first in the sorted list)
+        most_recent_branch = sorted_branches[0]['name']
+        print(f"Most recent branch in {owner}/{repo_name}: {most_recent_branch}")
+        return most_recent_branch
+    except Exception as e:
+        print(f"Error fetching branches from repository {owner}/{repo_name}: {e}")
+        return "main"  # Fallback to 'main' if there is an error or no branches
 
 def fetch_java_files(owner, repo_name, source_code_dir, seen_repos):
     """
     Fetches the content of all .java files in the src/main directory of a given repository.
+    Uses the most recently pushed branch instead of 'main'.
 
     Args:
-        owner (str): The GitHub username or organization name of the repository owner.
+        owner (str): The owner of the repository.
         repo_name (str): The name of the repository.
         source_code_dir (str): The directory to save the source code to.
-        seen_repos (set): Set of already-processed repo names.
+        seen_repos (set): A set of repositories already processed to avoid duplication.
     """
     full_name = f"{owner}/{repo_name}"
     if full_name in seen_repos:
         print(f"Skipping already processed repo: {full_name}")
         return
 
-    print(f"Fetching Java files from repository: {full_name}")
-    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/git/trees/main?recursive=1"
+    # Fetch the most recent branch dynamically
+    most_recent_branch = get_most_recent_branch(owner, repo_name)
+    print(f"Fetching Java files from repository: {full_name} (Branch: {most_recent_branch})")
+
+    # Fetch the repository tree
+    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/git/trees/{most_recent_branch}?recursive=1"
+    print(f"Fetching repository tree from: {url}")
     try:
         response = requests.get(url, headers=HEADERS)
         response.raise_for_status()
         data = response.json()
+
+        # Check if src/main exists in the repo structure
+        src_main_exists = any(file['path'].startswith("src/main/") for file in data.get('tree', []))
+
+        if not src_main_exists:
+            print(f"src/main/ directory not found in repository {full_name}. Skipping repository.")
+            return
+
         java_files_content = ""
+        found_java_file = False  # Flag to track if any Java files are found
+
         for file in data.get('tree', []):
             if file['path'].startswith("src/main/") and file['path'].endswith(".java"):
                 file_url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/contents/{file['path']}"
@@ -114,16 +159,17 @@ def fetch_java_files(owner, repo_name, source_code_dir, seen_repos):
                 if 'content' in file_data:
                     file_content = base64.b64decode(file_data['content']).decode('utf-8')
                     java_files_content += file_content + SEPARATOR_TOKEN
+                    found_java_file = True  # Mark as found at least one .java file
                     print(f"Fetched and added content from: {file['path']}")
 
-        if java_files_content:
+        if found_java_file:
             output_file_path = os.path.join(source_code_dir, f"{owner}_{repo_name}.txt")
             with open(output_file_path, "w", encoding="utf-8") as output_file:
                 output_file.write(java_files_content)
             print(f"All Java files content saved to: {output_file_path}")
             seen_repos.add(full_name)
         else:
-            print(f"No Java files found in {full_name}.")
+            print(f"No Java files found in {full_name}. Skipping this repository.")
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching Java files from repository {full_name}: {e}")
