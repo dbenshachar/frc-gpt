@@ -9,7 +9,7 @@ load_dotenv()
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 assert GITHUB_TOKEN is not None, "GITHUB_TOKEN must be set"
-API_QUERY = "reefscape in:name OR crescendo in:name OR chargedup in:name OR charged-up in:name OR rapidreact in:name OR rapid-react in:name"
+API_QUERY = "reefscape OR crescendo OR chargedup OR charged-up OR rapidreact OR rapid-react"
 
 SOURCE_CODE_DIR = "data"
 SEPARATOR_TOKEN = "\n\n" + "="*50 + " FILE SEPARATOR " + "="*50 + "\n\n"
