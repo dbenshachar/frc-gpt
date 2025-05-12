@@ -18,8 +18,8 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 
-PER_PAGE = 1
-PAGES = 1
+PER_PAGE = 100
+PAGES = 10
 
 def create_directory(directory_name):
     """
