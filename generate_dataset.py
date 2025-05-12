@@ -19,8 +19,8 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 
-PER_PAGE = 1
-PAGES = 1
+PER_PAGE = 100
+PAGES = 10
 
 def create_directory(directory_name):
     """
@@ -48,7 +48,7 @@ def load_seen_repos(directory):
     seen = set()
     for filename in os.listdir(directory):
         if filename.endswith(".txt") and "_" in filename:
-            base = filename[:-5]  # remove .java
+            base = filename[:-4]  # remove .java
             parts = base.split("_", 1)
             if len(parts) == 2:
                 owner, repo = parts
