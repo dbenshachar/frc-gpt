@@ -8,9 +8,9 @@ load_dotenv()
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 assert GITHUB_TOKEN is not None, "GITHUB_TOKEN must be set"
-API_QUERY = "filename:WPILib-License.md language:Java"
+API_QUERY = "path:.wpilib path:src/main/ is:public"
 
-SOURCE_CODE_DIR = "src/main/java"
+SOURCE_CODE_DIR = "data"
 OUTPUT_FILE = "data/data.txt"
 SEPARATOR_TOKEN = "\n\n" + "="*50 + " FILE SEPARATOR " + "="*50 + "\n\n"
 
@@ -53,8 +53,10 @@ def fetch_repositories(query, per_page, pages):
         url = f"https://api.github.com/search/repositories?q={query}&per_page={per_page}&page={page}"
         try:
             response = requests.get(url)
+            print(f"Request Status Code: {response.status_code}")
             response.raise_for_status()
             data = response.json()
+            print(f"Response Data: {data}") # Moved this line up
             if 'items' in data:
                 for item in data['items']:
                     repositories.append(item['name'])
@@ -109,7 +111,9 @@ def main():
     Main function to orchestrate fetching repositories and their Java files.
     """
     create_directory(SOURCE_CODE_DIR)
+    print("Fetching repositories...")
     repositories = fetch_repositories(API_QUERY, PER_PAGE, PAGES)
+    print(f"Total repositories fetched: {len(repositories)}")
 
     if not repositories:
         print("No repositories found. Exiting.")
@@ -117,3 +121,8 @@ def main():
 
     for repo_name in repositories:
         fetch_java_files(repo_name, SOURCE_CODE_DIR)
+
+if __name__ == "__main__":
+    main()
+    print("All repositories processed.")
+    print(f"Data saved: {SOURCE_CODE_DIR}")
