@@ -9,7 +9,7 @@ load_dotenv()
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 assert GITHUB_TOKEN is not None, "GITHUB_TOKEN must be set"
-API_QUERY = "path:.wpilib is:public"
+API_QUERY = "reefscape in:name OR crescendo in:name OR chargedup in:name OR charged-up in:name OR rapidreact in:name OR rapid-react in:name"
 
 SOURCE_CODE_DIR = "data"
 SEPARATOR_TOKEN = "\n\n" + "="*50 + " FILE SEPARATOR " + "="*50 + "\n\n"
@@ -19,8 +19,8 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 
-PER_PAGE = 100
-PAGES = 10
+PER_PAGE = 50
+PAGES = 1
 
 def create_directory(directory_name):
     """
