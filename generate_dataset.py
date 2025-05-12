@@ -266,7 +266,6 @@ def main():
         if index > len(seen_repos):
             print(f"Processing repository {index + 1}/{len(repositories)}: {owner}/{repo_name}")
             fetch_java_files(owner, repo_name, SOURCE_CODE_DIR, seen_repos)
-        fetch_java_files(owner, repo_name, SOURCE_CODE_DIR, seen_repos)
 
 if __name__ == "__main__":
     main()
