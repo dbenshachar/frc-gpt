@@ -9,7 +9,6 @@ load_dotenv()
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 assert GITHUB_TOKEN is not None, "GITHUB_TOKEN must be set"
-API_QUERY = "path:.wpilib path:src/main/ is:public"
 API_QUERY = "path:.wpilib is:public"
 
 SOURCE_CODE_DIR = "data"
@@ -86,33 +85,102 @@ def fetch_repositories(query, per_page, pages):
     return repositories
 
 def get_default_branch(owner, repo_name):
-    branches_url = f"https://api.github.com/repos/{owner}/{repo_name}/branches"
-    response = requests.get(branches_url)
-    response.raise_for_status()
-    branches_data = response.json()
+    """
+    Attempts to fetch the default branch of a GitHub repository first.
+    If the default branch is not found or an error occurs, it then
+    fetches all branches, sorts them by the latest commit date, and
+    returns the name of the most recently committed branch.
+    Returns 'main' as a final fallback if neither the default nor
+    any other branch can be determined.
+    """
     try:
+        # --- First attempt: Get the default branch from repo details ---
+        repo_url = f"https://api.github.com/repos/{owner}/{repo_name}"
+        repo_response = requests.get(repo_url)
+        repo_response.raise_for_status() # Raise an exception for bad status codes
+        repo_data = repo_response.json()
+
+        default_branch = repo_data.get("default_branch")
+        if default_branch:
+            print(f"Found default branch '{default_branch}' for {owner}/{repo_name}.")
+            return default_branch
+        else:
+            print(f"Default branch not found in repo details for {owner}/{repo_name}. Falling back to finding most recent branch by commit.")
+
+        # --- Fallback: Find the most recent branch by commit date ---
+        branches_url = f"https://api.github.com/repos/{owner}/{repo_name}/branches"
+        branches_response = requests.get(branches_url)
+        branches_response.raise_for_status() # Raise an exception for bad status codes
+        branches_data = branches_response.json()
+
         if not branches_data:
-            print(f"No branches found for {owner}/{repo_name}, using 'main'.")
+            print(f"No branches found for {owner}/{repo_name}. Using 'main' as ultimate fallback.")
             return "main"
 
+        # Sort branches by the commit date in descending order
+        # We fetch the full commit details to get the accurate date
         def get_commit_date(branch):
             commit_url = branch['commit']['url']
-            commit_response = requests.get(commit_url)
-            commit_response.raise_for_status()
-            commit_data = commit_response.json()
-            date_str = commit_data['commit']['committer'].get('date') or commit_data['commit']['author'].get('date')
-            if date_str:
-                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            return datetime.min
+            try:
+                commit_response = requests.get(commit_url)
+                commit_response.raise_for_status()
+                commit_data = commit_response.json()
+                # Use committer date, fallback to author date
+                date_str = commit_data['commit']['committer'].get('date') or commit_data['commit']['author'].get('date')
+                if date_str:
+                    # Parse ISO 8601 format
+                    return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            except requests.exceptions.RequestException as e:
+                print(f"Warning: Could not fetch commit details for {branch['name']}: {e}")
+            except ValueError:
+                 print(f"Warning: Could not parse date format for commit {branch['commit']['sha']}.")
+            return datetime.min # Return earliest possible date if no date or error
 
+        # Sort the branches list based on the commit date
         branches_data.sort(key=get_commit_date, reverse=True)
 
+        # The first branch after sorting is the most recent one
         most_recent_branch = branches_data[0]['name']
-        print(f"Most recent branch for {owner}/{repo_name} is '{most_recent_branch}'.")
+        print(f"Most recent branch by commit for {owner}/{repo_name} is '{most_recent_branch}'.")
         return most_recent_branch
+
+    except requests.exceptions.RequestException as e:
+        # This block catches errors from any of the requests.get() calls
+        print(f"Error fetching data for {owner}/{repo_name}: {e}")
+        # Attempt to get default branch as fallback in case of API error
+        try:
+            repo_url_fallback = f"https://api.github.com/repos/{owner}/{repo_name}"
+            repo_response_fallback = requests.get(repo_url_fallback)
+            repo_response_fallback.raise_for_status()
+            repo_data_fallback = repo_response_fallback.json()
+            default_branch_fallback = repo_data_fallback.get("default_branch")
+            if default_branch_fallback:
+                print(f"Using default branch '{default_branch_fallback}' as fallback due to API error.")
+                return default_branch_fallback
+        except requests.exceptions.RequestException:
+            # If even the fallback default branch fetch fails
+            pass # Ignore this error, proceed to ultimate fallback
+
+        print(f"Using 'main' as ultimate fallback due to API error and unable to get default branch.")
+        return "main"
     except Exception as e:
-        print(f"Error fetching default branch for {owner}/{repo_name}: {e}")
-        print(f"Default branch not found, using 'main' for {owner}/{repo_name}.")
+        # Catch any other unexpected errors during processing
+        print(f"An unexpected error occurred for {owner}/{repo_name}: {e}")
+        # Attempt to get default branch as fallback in case of unexpected error
+        try:
+            repo_url_fallback = f"https://api.github.com/repos/{owner}/{repo_name}"
+            repo_response_fallback = requests.get(repo_url_fallback)
+            repo_response_fallback.raise_for_status()
+            repo_data_fallback = repo_response_fallback.json()
+            default_branch_fallback = repo_data_fallback.get("default_branch")
+            if default_branch_fallback:
+                print(f"Using default branch '{default_branch_fallback}' as fallback due to unexpected error.")
+                return default_branch_fallback
+        except requests.exceptions.RequestException:
+             # If even the fallback default branch fetch fails
+            pass # Ignore this error, proceed to ultimate fallback
+
+        print(f"Using 'main' as ultimate fallback due to unexpected error and unable to get default branch.")
         return "main"
 
 def fetch_java_files(owner, repo_name, source_code_dir, seen_repos):
