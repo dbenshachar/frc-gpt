@@ -263,7 +263,7 @@ def main():
 
     # Start iterating from the index equal to the length of seen_repos
     for index, (owner, repo_name) in enumerate(repositories):
-        if index > len(seen_repos):
+        if index >= len(seen_repos):
             print(f"Processing repository {index + 1}/{len(repositories)}: {owner}/{repo_name}")
             fetch_java_files(owner, repo_name, SOURCE_CODE_DIR, seen_repos)
 
