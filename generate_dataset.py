@@ -90,7 +90,7 @@ def fetch_java_files(owner, repo_name, source_code_dir):
                     java_files_content += file_content + SEPARATOR_TOKEN
                     print(f"Fetched and added content from: {file['path']}")
 
-        output_file_path = os.path.join(source_code_dir, f"{owner}_{repo_name}.java")
+        output_file_path = os.path.join(source_code_dir, f"{owner}_{repo_name}.txt")
         with open(output_file_path, "w", encoding="utf-8") as output_file:
             output_file.write(java_files_content)
         print(f"All Java files content saved to: {output_file_path}")
