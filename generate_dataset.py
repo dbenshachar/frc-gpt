@@ -1,4 +1,5 @@
 import base64
+import datetime
 import requests
 import os
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ HEADERS = {
 }
 
 PER_PAGE = 1
-PAGES = 100
+PAGES = 1
 
 def create_directory(directory_name):
     """
@@ -84,33 +85,35 @@ def fetch_repositories(query, per_page, pages):
             print(f"Error fetching repositories on page {page}: {e}")
     return repositories
 
-def get_most_recent_branch(owner, repo_name):
-    """
-    Get the most recently pushed branch for the given repository.
-
-    Args:
-        owner (str): The owner of the repository.
-        repo_name (str): The name of the repository.
-
-    Returns:
-        str: The name of the most recently pushed branch.
-    """
-    url = f"https://api.github.com/repos/{owner}/{repo_name}/branches"
+def get_default_branch(owner, repo_name):
+    branches_url = f"https://api.github.com/repos/{owner}/{repo_name}/branches"
+    response = requests.get(branches_url)
+    response.raise_for_status()
+    branches_data = response.json()
     try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        branches = response.json()
+        if not branches_data:
+            print(f"No branches found for {owner}/{repo_name}, using 'main'.")
+            return "main"
 
-        # Sort branches by the date of the latest commit (last commit date)
-        sorted_branches = sorted(branches, key=lambda b: b['commit']['commit']['author']['date'], reverse=True)
+        def get_commit_date(branch):
+            commit_url = branch['commit']['url']
+            commit_response = requests.get(commit_url)
+            commit_response.raise_for_status()
+            commit_data = commit_response.json()
+            date_str = commit_data['commit']['committer'].get('date') or commit_data['commit']['author'].get('date')
+            if date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return datetime.min
 
-        # Get the most recent branch (the first in the sorted list)
-        most_recent_branch = sorted_branches[0]['name']
-        print(f"Most recent branch in {owner}/{repo_name}: {most_recent_branch}")
+        branches_data.sort(key=get_commit_date, reverse=True)
+
+        most_recent_branch = branches_data[0]['name']
+        print(f"Most recent branch for {owner}/{repo_name} is '{most_recent_branch}'.")
         return most_recent_branch
     except Exception as e:
-        print(f"Error fetching branches from repository {owner}/{repo_name}: {e}")
-        return "main"  # Fallback to 'main' if there is an error or no branches
+        print(f"Error fetching default branch for {owner}/{repo_name}: {e}")
+        print(f"Default branch not found, using 'main' for {owner}/{repo_name}.")
+        return "main"
 
 def fetch_java_files(owner, repo_name, source_code_dir, seen_repos):
     """
@@ -129,11 +132,11 @@ def fetch_java_files(owner, repo_name, source_code_dir, seen_repos):
         return
 
     # Fetch the most recent branch dynamically
-    most_recent_branch = get_most_recent_branch(owner, repo_name)
-    print(f"Fetching Java files from repository: {full_name} (Branch: {most_recent_branch})")
+    branch = get_default_branch(owner, repo_name)
+    print(f"Fetching Java files from repository: {full_name} (Branch: {branch})")
 
     # Fetch the repository tree
-    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/git/trees/{most_recent_branch}?recursive=1"
+    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/git/trees/{branch}?recursive=1"
     print(f"Fetching repository tree from: {url}")
     try:
         response = requests.get(url, headers=HEADERS)
