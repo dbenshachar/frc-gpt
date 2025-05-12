@@ -34,6 +34,26 @@ def create_directory(directory_name):
     else:
         print(f"Directory already exists: {directory_name}")
 
+def load_seen_repos(directory):
+    """
+    Loads seen repository names from filenames in the data directory.
+
+    Args:
+        directory (str): Path to the directory containing downloaded repo files.
+
+    Returns:
+        set: Set of "owner/repo" strings that have already been processed.
+    """
+    seen = set()
+    for filename in os.listdir(directory):
+        if filename.endswith(".java") and "_" in filename:
+            base = filename[:-5]  # remove .java
+            parts = base.split("_", 1)
+            if len(parts) == 2:
+                owner, repo = parts
+                seen.add(f"{owner}/{repo}")
+    return seen
+
 def fetch_repositories(query, per_page, pages):
     """
     Fetches repositories from GitHub based on the given query.
@@ -63,7 +83,7 @@ def fetch_repositories(query, per_page, pages):
             break
     return repositories
 
-def fetch_java_files(owner, repo_name, source_code_dir):
+def fetch_java_files(owner, repo_name, source_code_dir, seen_repos):
     """
     Fetches the content of all .java files in the src/main directory of a given repository.
 
@@ -71,8 +91,14 @@ def fetch_java_files(owner, repo_name, source_code_dir):
         owner (str): The GitHub username or organization name of the repository owner.
         repo_name (str): The name of the repository.
         source_code_dir (str): The directory to save the source code to.
+        seen_repos (set): Set of already-processed repo names.
     """
-    print(f"Fetching Java files from repository: {owner}/{repo_name}")
+    full_name = f"{owner}/{repo_name}"
+    if full_name in seen_repos:
+        print(f"Skipping already processed repo: {full_name}")
+        return
+
+    print(f"Fetching Java files from repository: {full_name}")
     url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/git/trees/main?recursive=1"
     try:
         response = requests.get(url, headers=HEADERS)
@@ -90,33 +116,36 @@ def fetch_java_files(owner, repo_name, source_code_dir):
                     java_files_content += file_content + SEPARATOR_TOKEN
                     print(f"Fetched and added content from: {file['path']}")
 
-        output_file_path = os.path.join(source_code_dir, f"{owner}_{repo_name}.txt")
-        with open(output_file_path, "w", encoding="utf-8") as output_file:
-            output_file.write(java_files_content)
-        print(f"All Java files content saved to: {output_file_path}")
+        if java_files_content:
+            output_file_path = os.path.join(source_code_dir, f"{owner}_{repo_name}.java")
+            with open(output_file_path, "w", encoding="utf-8") as output_file:
+                output_file.write(java_files_content)
+            print(f"All Java files content saved to: {output_file_path}")
+            seen_repos.add(full_name)
+        else:
+            print(f"No Java files found in {full_name}.")
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching Java files from repository {owner}/{repo_name}: {e}")
+        print(f"Error fetching Java files from repository {full_name}: {e}")
     except KeyError as e:
-        print(f"KeyError while processing repository {owner}/{repo_name}: {e}.")
+        print(f"KeyError while processing repository {full_name}: {e}.")
     except Exception as e:
-        print(f"Unexpected error with repository {owner}/{repo_name}: {e}")
+        print(f"Unexpected error with repository {full_name}: {e}")
 
 def main():
     """
     Main function to orchestrate fetching repositories and their Java files.
     """
     create_directory(SOURCE_CODE_DIR)
+    seen_repos = load_seen_repos(SOURCE_CODE_DIR)
+    print(f"Loaded {len(seen_repos)} previously seen repos.")
+
     print("Fetching repositories...")
     repositories = fetch_repositories(API_QUERY, PER_PAGE, PAGES)
     print(f"Total repositories fetched: {len(repositories)}")
 
-    if not repositories:
-        print("No repositories found. Exiting.")
-        return
-
     for owner, repo_name in repositories:
-        fetch_java_files(owner, repo_name, SOURCE_CODE_DIR)
+        fetch_java_files(owner, repo_name, SOURCE_CODE_DIR, seen_repos)
 
 if __name__ == "__main__":
     main()
