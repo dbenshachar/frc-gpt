@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, AutoTokenizer
-import torch
+from transformers import GPT2LMHeadModel, AutoTokenizer
+import uvicorn
 
 app = FastAPI()
 
@@ -36,3 +36,5 @@ async def autocomplete(request: Request):
         return {"completion": ""}
     
 # To run the server, use the command: uvicorn app:app --reload --host 127.0.0.1 --port 8000
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
