@@ -6,6 +6,7 @@ app = FastAPI()
 
 MODEL_NAME = "gpt2"
 MODEL_PATH = "gpt2-java"
+MAX_NEW_TOKENS = 512
 
 model = GPT2LMHeadModel.from_pretrained(MODEL_PATH)
 model.eval()
@@ -23,7 +24,7 @@ async def autocomplete(request: Request):
         inputs = tokenizer(prompt, return_tensors="pt")
         outputs = model.generate(
             **inputs,
-            max_new_tokens=50,
+            max_new_tokens=MAX_NEW_TOKENS,
             do_sample=True,
             top_p=0.95,
             temperature=0.8,
@@ -33,3 +34,5 @@ async def autocomplete(request: Request):
         return {"completion": completion[len(prompt):]}
     except Exception as e:
         return {"completion": ""}
+    
+# To run the server, use the command: uvicorn app:app --reload --host 127.0.0.1 --port 8000
