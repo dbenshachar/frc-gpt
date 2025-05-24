@@ -3,4 +3,4 @@
 data/
 gpt2-java/
 __pycache__/
-.pyc
+node_modules/
