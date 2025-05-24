@@ -2,3 +2,5 @@
 .ipynb
 data/
 gpt2-java/
+__pycache__/
+.pyc
