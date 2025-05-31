@@ -2,10 +2,13 @@ from fastapi import FastAPI, Request
 from transformers import GPT2LMHeadModel, AutoTokenizer
 import uvicorn
 import torch
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 app = FastAPI()
 
-MODEL_NAME = "HuggingFaceTB/SmolLM2-135M-Instruct"
+MODEL_NAME = os.environ.get("MODEL_NAME")
 MODEL_PATH = "frc-llama"
 MAX_NEW_TOKENS = 128
 
@@ -17,6 +20,8 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 SEPARATOR_TOKEN = "\n\n" + "="*50 + " FILE SEPARATOR " + "="*50 + "\n\n"
 tokenizer.add_special_tokens({'additional_special_tokens': [SEPARATOR_TOKEN]})
 tokenizer.pad_token = tokenizer.eos_token
+model.config.pad_token_id = tokenizer.eos_token_id
+model.resize_token_embeddings(len(tokenizer))
 
 @app.post("/autocomplete")
 async def autocomplete(request: Request):

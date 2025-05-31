@@ -3,6 +3,8 @@ import torch
 
 from datasets import load_dataset, Dataset
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 TRAIN_TEST_SPLIT = 0.1
 
@@ -10,7 +12,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 print("Loading model and tokenizer...")
-MODEL_NAME = "HuggingFaceTB/SmolLM2-135M-Instruct"
+MODEL_NAME = os.environ.get("MODEL_NAME")
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME).to(device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
 print("Model and tokenizer loaded.")
