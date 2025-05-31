@@ -5,8 +5,8 @@ import torch
 
 app = FastAPI()
 
-MODEL_NAME = "gpt2"
-MODEL_PATH = "gpt2-java"
+MODEL_NAME = "HuggingFaceTB/SmolLM2-135M-Instruct"
+MODEL_PATH = "frc-llama"
 MAX_NEW_TOKENS = 128
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
