@@ -1,6 +1,6 @@
 .env
 .ipynb
 data/
-gpt2-java/
+frc-llama/
 __pycache__/
 node_modules/

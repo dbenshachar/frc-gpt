@@ -4,20 +4,21 @@ import torch
 from datasets import load_dataset, Dataset
 import os
 
-MODEL_NAME = "gpt2"
 TRAIN_TEST_SPLIT = 0.1
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 print("Loading model and tokenizer...")
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+MODEL_NAME = "HuggingFaceTB/SmolLM2-135M-Instruct"
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME).to(device)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
 print("Model and tokenizer loaded.")
 
 SEPARATOR_TOKEN = "\n\n" + "="*50 + " FILE SEPARATOR " + "="*50 + "\n\n"
 tokenizer.add_special_tokens({'additional_special_tokens': [SEPARATOR_TOKEN]})
 tokenizer.pad_token = tokenizer.eos_token
+model.config.pad_token_id = tokenizer.eos_token_id
 model.resize_token_embeddings(len(tokenizer))
 
 data_dir = "data"
@@ -51,7 +52,7 @@ tokenized_val_dataset = val_dataset.map(tokenize_function, batched=True)
 print("Data tokenized.")
 
 training_args = TrainingArguments(
-    output_dir="./gpt2-java",
+    output_dir="./frc-llama",
     per_device_train_batch_size=2,
     num_train_epochs=20,
     save_steps=500,
@@ -72,5 +73,5 @@ print("Starting training...")
 print(trainer.train())
 print("Training completed.")
 print("Saving model...")
-trainer.save_model("./gpt2-java")
+trainer.save_model("./frc-llama")
 print("Model saved.")
